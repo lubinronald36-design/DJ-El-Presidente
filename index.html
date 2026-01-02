@@ -1,171 +1,74 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MyChillingTime — Interactive Notes</title>
-  <style>
-    body{font-family:system-ui,Arial,sans-serif;max-width:980px;margin:28px auto;padding:0 16px}
-    h1{margin:0 0 6px}
-    .box{padding:14px 16px;border:1px solid #ddd;border-radius:12px;margin:12px 0}
-    button{padding:10px 14px;border-radius:10px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
-    button:disabled{opacity:.5}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .small{font-size:14px;color:#555}
-    .keys{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-top:10px}
-    .key{padding:12px;border:1px solid #ddd;border-radius:10px;text-align:center}
-    .key.active{outline:3px solid #111}
-    @media(max-width:720px){.keys{grid-template-columns:repeat(4,1fr)}}
-    pre{background:#0b1020;color:#d7e3ff;padding:10px;border-radius:10px}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyChillingTime — Interactive Music</title>
+
+<style>
+body{background:#0b0d12;color:#eaeaff;font-family:system-ui;padding:20px}
+.card{background:#15182a;border-radius:14px;padding:16px;margin-bottom:14px}
+button{padding:10px 14px;border-radius:10px;font-weight:700;border:none;cursor:pointer}
+.start{background:#fff;color:#000}
+.stop{background:#ff4d4d;color:#fff}
+kbd{background:#22265a;border:1px solid #3b4099;border-radius:8px;padding:6px 10px;margin:3px;display:inline-block}
+.status{color:#9fa8ff;margin-top:8px}
+</style>
 </head>
+
 <body>
+<h1>🎵 MyChillingTime</h1>
 
-<h1>MyChillingTime 🎵</h1>
-<div class="small">Beat + Keys + Record / Loop (FINAL)</div>
-
-<div class="box">
-  <div class="row">
-    <button id="startBeat">Start Beat</button>
-    <button id="stopBeat" disabled>Stop Beat</button>
-    <button id="recBtn">Record</button>
-    <button id="stopRecBtn" disabled>Stop Rec</button>
-    <button id="clearBtn">Clear Loop</button>
-  </div>
-  <pre id="log">Log:\n</pre>
+<div class="card">
+  <button id="playBtn" class="start">▶ Start Beat</button>
+  <button id="stopBtn" class="stop" disabled>■ Stop Beat</button>
+  <div id="status" class="status">Ready</div>
 </div>
 
-<div class="box">
-  <div class="keys" id="keys"></div>
+<div class="card">
+  <p><strong>Keyboard</strong></p>
+  <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd><kbd>J</kbd>
 </div>
-
-<audio id="beat" src="bott.mp3" loop></audio>
 
 <script>
-const logEl = document.getElementById("log");
-const log = m => logEl.textContent += m + "\n";
+const beat = new Audio("bott.mp3");
+beat.loop = true;
 
-const beat = document.getElementById("beat");
-const startBeatBtn = document.getElementById("startBeat");
-const stopBeatBtn = document.getElementById("stopBeat");
-
-const recBtn = document.getElementById("recBtn");
-const stopRecBtn = document.getElementById("stopRecBtn");
-const clearBtn = document.getElementById("clearBtn");
-
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-const ctx = new AudioCtx();
-
-let recording = false;
-let recorded = [];
-let recStart = 0;
-let loopTimer = null;
-
-const KEYS = ["1","2","3","4","Q","W","E","R","A","S","D","F","Z","X","C","V"];
-const SCALE = [261.63,293.66,329.63,349.23,392,440,493.88,523.25];
-
-function playNote(freq){
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "triangle";
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
-  gain.gain.linearRampToValueAtTime(0, now + 0.15);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + 0.16);
+let ctx;
+function playBeep(freq=440){
+  if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type="sine";
+  o.frequency.value=freq;
+  g.gain.value=0.15;
+  o.connect(g); g.connect(ctx.destination);
+  o.start();
+  o.stop(ctx.currentTime+0.12);
 }
 
-function handleKey(key, idx){
-  playNote(SCALE[idx % SCALE.length] * (idx >= 8 ? 2 : 1));
-  if(recording){
-    recorded.push({ t: ctx.currentTime - recStart, idx });
-  }
+playBtn.onclick=()=>{
+  beat.play();
+  playBtn.disabled=true;
+  stopBtn.disabled=false;
+  status.textContent="Beat playing";
 }
 
-const keysDiv = document.getElementById("keys");
-const keyEls = new Map();
-
-KEYS.forEach((k,i)=>{
-  const d = document.createElement("div");
-  d.className="key";
-  d.textContent=k;
-  d.onpointerdown=()=>{ unlock(); handleKey(k,i); flash(k); };
-  keysDiv.appendChild(d);
-  keyEls.set(k,d);
-});
-
-function flash(k){
-  const el = keyEls.get(k);
-  el.classList.add("active");
-  setTimeout(()=>el.classList.remove("active"),80);
+stopBtn.onclick=()=>{
+  beat.pause();
+  beat.currentTime=0;
+  playBtn.disabled=false;
+  stopBtn.disabled=true;
+  status.textContent="Stopped";
 }
 
 window.addEventListener("keydown",e=>{
-  const k = e.key.toUpperCase();
-  const i = KEYS.indexOf(k);
-  if(i>-1){ unlock(); handleKey(k,i); flash(k); }
+  const k=e.key.toUpperCase();
+  if("ASDFGHJ".includes(k)){
+    playBeep(300+Math.random()*600);
+  }
 });
-
-async function unlock(){
-  if(ctx.state!=="running") await ctx.resume();
-}
-
-startBeatBtn.onclick = async ()=>{
-  await unlock();
-  beat.currentTime = 0;
-  await beat.play();
-  startBeatBtn.disabled = true;
-  stopBeatBtn.disabled = false;
-  log("Beat ON");
-};
-
-stopBeatBtn.onclick = ()=>{
-  beat.pause();
-  startBeatBtn.disabled = false;
-  stopBeatBtn.disabled = true;
-  log("Beat OFF");
-};
-
-recBtn.onclick = async ()=>{
-  await unlock();
-  recording = true;
-  recorded = [];
-  recStart = ctx.currentTime;
-  recBtn.disabled = true;
-  stopRecBtn.disabled = false;
-  log("Recording...");
-};
-
-stopRecBtn.onclick = ()=>{
-  recording = false;
-  recBtn.disabled = false;
-  stopRecBtn.disabled = true;
-  log("Recorded notes: "+recorded.length);
-  startLoop();
-};
-
-function startLoop(){
-  clearLoop();
-  loopTimer = setInterval(()=>{
-    recorded.forEach(n=>{
-      setTimeout(()=>playNote(SCALE[n.idx % SCALE.length] * (n.idx>=8?2:1)), n.t*1000);
-    });
-  }, 4000);
-  log("Loop ON");
-}
-
-function clearLoop(){
-  if(loopTimer) clearInterval(loopTimer);
-  loopTimer = null;
-  recorded = [];
-  log("Loop CLEARED");
-}
-
-clearBtn.onclick = clearLoop;
 </script>
-
 </body>
 </html>
+
